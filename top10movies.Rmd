@@ -1,0 +1,156 @@
+---
+title: "Determining the top 10 movies"
+author: "Gosuddin Siddiqi"
+date: "January 31, 2017"
+output: pdf_document
+---
+
+The following report is a part of the coursework at UW INFX 573 class. The datasets used was provided as a part of coursework and is a subset of the original MovieLens dataset
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, tidy = TRUE, width.cutoff = 60)
+library (dplyr)
+```
+
+
+```{r}
+movies <- read.csv("movie.titles.csv")
+ratings <- read.csv("ratings.csv")
+
+summary(ratings)
+```
+
+Merging the dataset
+
+```{r}
+movies_With_Ratings <- merge(movies,ratings,by="movieId")
+
+```
+
+Counting the number of ratings per movie
+```{r}
+
+legi_movies <- movies_With_Ratings %>%
+  select(movieId,title,rating) %>%
+  group_by(movieId,title,rating) %>%
+  summarize(n_r = n(), avg_ratings = mean(rating))%>%
+  arrange(desc(n_r))
+
+
+```
+
+I filtered the movies that have legitmate number of votes before the average ratings could be calculated. This would eliminate the errorneous single votes that falsely make the movie #1. I choose a threshold of 200 movies in the decreasing order of the number of votes.
+
+```{r}
+popular200 <- head(legi_movies,200)
+```
+
+I then arranged the movies according to the decreasing order of the avg_ratings. This could be used to select the top 10 movies.
+
+```{r}
+top10 <- popular200 %>%
+  group_by(movieId,title)%>%
+  filter(sum(n_r)>100)%>%
+  summarise(avg_ratings = mean(rating),w_r = weighted.mean(rating,n_r))%>%
+  arrange(desc(w_r))
+  
+  
+head(top10$title,10)
+
+```
+
+
+#Top 90s movies
+
+More can be done on this dataset to produce top 10 movies based on the years such as 70s, 80s, 90s and so on. Also, the dataset could also be filtered based on the genre. 
+I have implemented an example of each.
+
+```{r}
+legi_movies_90 <- movies_With_Ratings %>%
+  filter(year.x >=1990 & year.x <2000 )%>%
+  select(movieId,title,rating,year.x) %>%
+  group_by(movieId,title,rating) %>%
+  summarize(n_r = n(), avg_ratings = mean(rating))%>%
+  arrange(desc(n_r))
+
+popular100_90 <- head(legi_movies_90,100)  ## re adjusting to top 100 because of subset created
+
+top10_90 <- popular100_90 %>%
+  group_by(movieId,title)%>%
+  filter(sum(n_r)>100)%>%
+  summarise(avg_ratings = mean(rating),w_r = weighted.mean(rating,n_r))%>%
+  arrange(desc(w_r))
+
+head(top10_90$title,10)
+
+
+```
+
+
+##Top Action Movies
+
+```{r}
+legi_movies_action <- movies_With_Ratings %>%
+  filter(grepl("Action",genre,ignore.case = T))%>%
+  select(movieId,title,rating,year.x) %>%
+  group_by(movieId,title,rating) %>%
+  summarize(n_r = n(), avg_ratings = mean(rating))%>%
+  arrange(desc(n_r))
+
+popular_action <- head(legi_movies_action,25) 
+## re adjusting to top 20 because of subset created
+
+top10_action <- popular_action %>%
+   group_by(movieId,title)%>%
+  filter(sum(n_r)>75)%>%
+  summarise(avg_ratings = mean(rating),w_r = weighted.mean(rating,n_r))%>%
+  arrange(desc(w_r))
+
+head(top10_action$title,10)
+
+```
+
+
+#IMBD rankings
+
+According to the imdb formula, I calculated the top 10 movies. They claim that they use true Bayesian estimate.
+
+#Top 10
+```{r}
+C <- mean(ratings$rating)
+m <- 84 #lowest number of votes as per my quantiles calculation
+
+top10_imdb_formula <- legi_movies%>%
+  mutate(weighted_ratings = ((n_r/(n_r + m))*avg_ratings) + (m/(n_r+m))*C) %>%
+  arrange(desc(weighted_ratings))
+
+head(top10_imdb_formula$title,10)
+
+```
+
+
+#Top 10 90s Movies
+
+```{r}
+
+
+top10_imdb_formula <- legi_movies_90%>%
+  mutate(weighted_ratings = ((n_r/(n_r + m))*avg_ratings) + (m/(n_r+m))*C) %>%
+  arrange(desc(weighted_ratings))
+
+head(top10_imdb_formula$title,10)
+
+```
+
+
+#Top 10 Action movies
+
+```{r}
+top10_imdb_formula <- legi_movies_action%>%
+  mutate(weighted_ratings = ((n_r/(n_r + m))*avg_ratings) + (m/(n_r+m))*C) %>%
+  arrange(desc(weighted_ratings))
+
+head(top10_imdb_formula$title,10)
+
+```
+
